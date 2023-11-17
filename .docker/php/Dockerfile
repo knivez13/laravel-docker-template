@@ -41,5 +41,11 @@ RUN composer global require "laravel/installer"
 WORKDIR /root
 RUN git clone https://github.com/seebi/dircolors-solarized
 
-EXPOSE 5173
+EXPOSE 8000 6001
 WORKDIR /var/www
+
+RUN composer dump-autoload --optimize && \
+    php artisan cache:clear && \
+    php artisan config:clear && \
+    php artisan route:clear && \
+    php artisan view:clear 

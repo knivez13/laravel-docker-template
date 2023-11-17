@@ -1,18 +1,57 @@
-version: '3'
+version: "3"
 
 services:
-
     ####################################################################################################
     # PHP
     ####################################################################################################
     php:
         container_name: laravel_php
         build: .docker/php
+        restart: unless-stopped
         ports:
-            - 5173:5173
+            - 8000:8000
         volumes:
             - .:/var/www:cached
+    ####################################################################################################
+    # npm
+    ####################################################################################################
+    npm:
+        container_name: laravel_npm
+        image: node
+        restart: unless-stopped
+        volumes:
+            - .:/var/www
+        working_dir: /var/www
+        command: npm run dev
+        depends_on:
+            - php
+    ####################################################################################################
+    # scheduler
+    ####################################################################################################
+    scheduler:
+        container_name: laravel_scheduler
+        build: .docker/scheduler
+        restart: unless-stopped
+        volumes:
+            - .:/var/www
+        working_dir: /var/www
+        command: php artisan schedule:work
+        depends_on:
+            - php
 
+    ####################################################################################################
+    # websocket
+    ####################################################################################################
+    websocket:
+        container_name: laravel_websocket
+        build: .docker/scheduler
+        restart: unless-stopped
+        volumes:
+            - .:/var/www
+        working_dir: /var/www
+        command: php artisan websockets:serve
+        depends_on:
+            - php
     ####################################################################################################
     # Nginx
     ####################################################################################################
@@ -27,13 +66,28 @@ services:
             - .docker/nginx/nginx.conf:/etc/nginx/nginx.conf
         depends_on:
             - php
-
+    ####################################################################################################
+    # phpmyadmin
+    ####################################################################################################
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: laravel_phpmyadmin
+        links:
+            - db
+        environment:
+            PMA_HOST: db
+            PMA_PORT: 3306
+            PMA_ARBITRARY: 1
+        restart: always
+        ports:
+            - 8081:80
     ####################################################################################################
     # DATABASE (MySQL)
     ####################################################################################################
     db:
         container_name: laravel_mysql
-        image: mysql:8.1
+        image: mysql
+        restart: unless-stopped
         ports:
             - 3306:3306
         volumes:
@@ -46,26 +100,6 @@ services:
             MYSQL_DATABASE: laravel_db_name
             MYSQL_USER: laravel_db_user
             MYSQL_PASSWORD: laravel_db_pass
-
-    # ####################################################################################################
-    # # DATABASE (MariaDB)
-    # ####################################################################################################
-    # db:
-    #     container_name: laravel_mariadb
-    #     image: mariadb:10.11
-    #     ports:
-    #         - 3306:3306
-    #     volumes:
-    #         - .docker/db/data:/var/lib/mysql
-    #         - .docker/logs:/var/log/mysql
-    #         - .docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
-    #         - .docker/db/sql:/docker-entrypoint-initdb.d
-    #     environment:
-    #         MYSQL_ROOT_PASSWORD: root
-    #         MYSQL_DATABASE: laravel_db_name
-    #         MYSQL_USER: laravel_db_user
-    #         MYSQL_PASSWORD: laravel_db_pass
-
     ####################################################################################################
     # Mailpit
     ####################################################################################################
@@ -73,5 +107,5 @@ services:
         container_name: laravel_mailpit
         image: axllent/mailpit:latest
         ports:
-        - 8025:8025
-        - 1025:1025
+            - 8025:8025
+            - 1025:1025
